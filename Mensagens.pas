@@ -1,0 +1,185 @@
+unit Mensagens;
+
+interface
+
+uses
+SysUtils;
+
+//function Mensagen_Atual(id_mensagem:Integer
+function Mensagens_Pequenas(id_mensagem:Integer):String;
+function Mensagens_Publicas(id_mensagem:Integer):String;
+function Mensagens_Privadas(id_mensagem:Integer;VarConsole,VarArquivo,VarMidia:String):String;
+
+implementation
+
+uses Genericas;
+//MessageBox(Application.Handle,pchar(erro_locate_ini),pchar(Application.Title),MB_ICONWARNING+MB_OK);
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+{function Mensagen_Atual(id_mensagem:Integer
+begin
+VarMsgGeral:=Mensagens_Privadas(11,'',VarDiretorioROM,'');
+
+MessageBox(Application.Handle,pchar(VarMsgGeral)
+                             ,pchar(Application.Title),MB_ICONERROR+MB_OK);
+end;
+}
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Mensagens_Pequenas(id_mensagem:Integer):String;
+begin
+
+ case id_mensagem of
+
+ 1: Result := 'Digite um novo nome para o jogo:';
+ 2: Result := 'Atenção - Dispositivo Removível';
+ 3: Result := 'Pronto!';
+ 4: Result := 'Abrir';
+ 5: Result := 'Configurar Controles';
+ 6: Result := 'Excluir Configurações';
+ 7: Result := 'Arquivo';
+ 8: Result := 'Emuladores';
+ 9: Result := 'Sobre o';
+10: Result := 'Memória Disponível';
+11: Result := 'Versão';
+12: Result := 'Informações';
+13: Result := 'Doações PayPal';
+14: Result := 'Instagram';
+15: Result := 'Site';
+16: Result := 'Download de ROMs';
+
+ end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Mensagens_Publicas(id_mensagem:Integer):String;
+begin
+
+ case id_mensagem of
+
+ 1: Result := 'Você está executando a plataforma à partir de um dispositivo removível.'+#13+
+              'A execução dos jogos e funcionalidades poderão sofrer queda de performance.';
+              //Deve preferenciamente rodar no HD do computador.
+
+ 2: Result := 'Não foi possível realizar a auto-configuração deste emulador devido a restrições de gravação.'+#13+
+              'Verifique se o arquivo de inicialização do emulador está em uso por outro programa.'+#13#13+
+              'CODE: ERR0'+IntToStr(id_mensagem)+#13#13+
+              'Deseja executar o jogo assim mesmo?';
+              //Sobreescrever (SaveToFile) as configurações de um arquivo INI na pasta do Emulador.
+
+ 3: Result := 'Não foi possível executar a plataforma devido à restrições de acesso e gravação de arquivos.'+#13+
+              'É necessário copiar a plataforma e executa-la em seu computador ou dispositivo removível.'+#13#13+
+              'CODE: ERR0'+IntToStr(id_mensagem);
+              //O programa não permite rodar em dispositivos que não suportem gravação. Ex: CD's e DVD's.
+
+ 4: Result := 'Não é possível renomear este jogo utilizando caracteres especiais.'+#13+
+              'É permitido apenas letras e números.'+#13#13+
+              'CODE: ERR0'+IntToStr(id_mensagem);
+              //Bloquear caracteres especiais.
+
+              {VERIFICAR SE EXISTE ESSA CONDIÇÃO}
+ 5: Result := 'Não foi possível localizar o diretório onde estava localizado este jogo.'+#13+
+              'A listagem será atualizada!'+#13#13+
+              'CODE: ERR0'+IntToStr(id_mensagem);
+
+ 6: Result := 'Este botão deve ser marcado apenas em caso de problemas na transparência de elementos estáticos ou animados do jogo.'+#13#13+
+              'Leia mais sobre "Alpha Blending".';
+
+ 7: Result := 'Deseja salvar o esquema de controles antes de sair?';
+
+ 8: Result := 'O recurso de transparência foi desativado!';
+
+
+ end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Mensagens_Privadas(id_mensagem:Integer;VarConsole,VarArquivo,VarMidia:String):String;
+begin
+VarConsole:=UpperCase(VarConsole);
+
+ case id_mensagem of
+
+ 1: Result := 'Não foi encontrado em seu computador o arquivo '+VarArquivo+' no diretório '+ExtractSystemDir+'.'+#13+
+              'O processo de cópia automática não pôde ser executado devido a restrições de leitura/gravação do Windows.'+#13#13+
+              'CODE: DX'+IntToStr(id_mensagem);
+
+ 2: Result := 'Não foi possível localizar o arquivo '+VarArquivo+' na instalação do Console Launcher.'+#13+
+              'Faça nova instalação e tente executar novamente.'+#13#13+
+              'CODE: DX'+IntToStr(id_mensagem);
+                                     
+15: Result :='Não foi possível encontrar '+LowerCase(VarMidia)+'s de '+VarConsole+'.';
+
+ //----------------------
+ //----------------------
+
+ 3: Result:=  'Há uma nova versão do software Console Launcher disponível no site!'+#13#13+
+              'Deseja atualizar agora?';
+
+                 //NAO TA USANDO MAIS ESSE
+ {3: Result := 'Não foi possível localizar o arquivo de configurações utilizado pelo '+VarConsole+'.'+#13#13+
+              'O emulador será executado para que o seguinte arquivo seja criado automaticamente:'+#13+VarArquivo+#13#13+
+              'Caso o problema persista, entre em contato com o desenvolvedor.'+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+  }
+ 4: Result := 'Não foi possível criar o diretório padrão de jogos do '+VarConsole+'.'+#13+
+              'Verifique se o local onde o sistema está instalado possui acesso de leitura/gravação.'+#13#13+
+              'Caso o problema persista, entre em contato com o desenvolvedor.'+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+
+ 5: Result := 'Não foi possível configurar as teclas de SALVAR/CARREGAR e FECHAR do emulador de '+VarConsole+' devido a restrições de leitura/gravação do Windows.'+#13+
+              'O emulador será executado normalmente com estas configurações nativas.'+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+
+12: Result := 'O jogo '+UpperCase(VarArquivo)+' não foi encontrado no diretório padrão do '+VarConsole+'.'+#13#13+
+              'A Plataforma irá atualizar a listagem atual.';
+
+13: Result := 'Não foi possível localizar o arquivo de configurações utilizado pelo '+VarConsole+'.'+#13#13+
+              'O emulador precisa ser executado manualmente para que o mesmo seja criado automaticamente:'+#13+VarArquivo+#13#13+
+              'Abra o menu "Emuladores" e selecione manualmente.'+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+
+ //----------------------
+ //----------------------
+
+ 6: Result := 'Este título de jogo já existe dentro do diretório de '+VarMidia+'S'+' do '+VarConsole+'.'+#13+
+              'Verifique e utilize um nome diferente.'+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+
+ 7: Result := 'Houve um erro ao tentar renomear os arquivos relacionados ao jogo.'+#13+
+              'Verifique manualmente dentro do diretório de '+VarMidia+'s'+' do '+VarConsole+'.'+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+
+ //----------------------
+ //----------------------
+
+ 8: Result := 'Não foi possível excluir o arquivo de configurações do '+VarConsole+' devido a restrições de leitura/gravação do Windows.'+#13+
+              'Caso o problema persista, exclua manualmente o arquivo localizado no caminho abaixo:'+#13+VarArquivo+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+
+ 9: Result := 'Todas as configurações definidas para o emulador de '+VarConsole+' serão excluídas.'+#13+
+              'Será necessário realizar nova configuração dos comandos do Joystick.'+#13#13+
+              'Deseja excluir?';
+
+10: Result := 'O arquivo de configurações do '+VarConsole+' foi criado com sucesso!';
+
+14: Result := 'O arquivo de configurações do '+VarConsole+' não foi criado com sucesso'+#13+
+              'Verifique se o local onde o sistema está instalado possui acesso de leitura/gravação.'+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+
+11: Result := 'Ocorreu um problema ao tentar acessar o seguinte diretório abaixo:'+#13+VarArquivo+#13#13+
+              'CODE: EXEC'+IntToStr(id_mensagem);
+              
+ //----------------------
+ //----------------------
+ end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+end.
+ 

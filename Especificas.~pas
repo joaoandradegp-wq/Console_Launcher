@@ -1,0 +1,794 @@
+unit Especificas;
+
+interface
+
+uses
+Windows,SysUtils,Forms,ShellApi,ExtCtrls,Menus,Buttons,Classes,Unit1,dialogs,StdCtrls;
+
+procedure Listar_Titulos(id: Integer);
+procedure EnumFiles(Pasta, Arquivo: String; Files: TStrings; ListBox1:TListBox);
+procedure RenomearROM;
+function  ApagaTrackCD(Titulo_Jogo:String):String;
+function  Grava_ArquivoN64(ArquivoN64:String):Boolean;
+function  Verificar_Status(Verifica:Boolean;Flag_Imagem:TImage):Integer;
+function  SaveLoadState(Marcador:Boolean;Teclas:String):Boolean;
+function  Anular_Teclas(Save,Load:String):Boolean;
+function  Renomear_Extensao(Caminho_Atual,Caminho_Emulador,Nome_Jogo,Extensao_Original:String):Boolean;
+function  Criar_SubMenus_Console(Menu_Linha,Indice:Integer;Menu_Superior:TMenuItem;Evento:TNotifyEvent;Texto_Menu:String):TMenuItem;
+function  Criar_Emuladores(Lista_Console:Array of Campos;Menu_Superior:TMenuItem):Boolean;
+function  Abertura_Sistema(Menu_Item:TMenuItem):Boolean;
+function  Imagem_Console(Indice:Integer;Topo:TPanel):Boolean;
+function  Habilita_Emulador(Caminho_Emulador,Caminho_Rom,Nome_Console:String):Boolean;
+function  Resolucao_Tela_Fusion(Resolucao:Integer):String;
+function  Bloquear_Caracteres(Campo:String):Boolean;
+
+implementation
+
+uses Mensagens,Genericas;
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+procedure Listar_Titulos(id: Integer);
+var
+i:Integer;
+nome_jogo,caminho_config:String;
+begin
+id_console:=id;  {VER SE PRECISA DISSO AQUI}
+
+Form1.abfFolderMonitor1.Folder:=Diretorio_Global+Array_Consoles[id_console][3];;
+Form1.abfFolderMonitor1.Active:=True;
+
+caminho_config:=Diretorio_Global+ExtractFilePath(Array_Consoles[id_console][6])
+                                                +Array_Consoles[id_console][11];
+
+//-------------------------
+Form1.BTN_CONFIG.Enabled:=True;
+Form1.BTN_JOYSTICK.Enabled:=True;
+//-------------------------
+
+//----------------------------------------
+Imagem_Console(id_console,Form1.Panel_Consoles);
+//----------------------------------------
+
+//-------------------------------------
+Vetor_Listagem_Rom.Free;
+Vetor_Listagem_Rom:=Nil;
+Vetor_Listagem_Rom:=TStringList.Create;
+//-------------------------------------
+
+//-------------------------------------------------------------------------------------------------------
+EnumFiles(Diretorio_Global+Array_Consoles[id_console][3],Array_Consoles[id_console][4],Vetor_Listagem_Rom,Form1.ListBox1);
+
+if (Vetor_Listagem_Rom.Count > 0) then
+Form1.BTN_EXTRAIR.Enabled:=True
+else
+Form1.BTN_EXTRAIR.Enabled:=False;
+
+{COPIA O ARQUIVO INDIVIDUAL PARA O GERAL - FUSION.INI}
+if (LowerCase(ExtractName(Array_Consoles[id_console][6])) = 'fusion') then
+FileCopy(Config_Fusion_MultiConsole,caminho_config);
+
+ case id_console of
+ 1: begin                      
+    EnumFiles(Diretorio_Global+Array_Consoles[id_console][3],'*.bin',Vetor_Listagem_Rom,Form1.ListBox1);
+    EnumFiles(Diretorio_Global+Array_Consoles[id_console][3],'*.md' ,Vetor_Listagem_Rom,Form1.ListBox1);
+    end;
+ 2: EnumFiles(Diretorio_Global+Array_Consoles[id_console][3],'*.sfc',Vetor_Listagem_Rom,Form1.ListBox1);
+ 6: EnumFiles(Diretorio_Global+Array_Consoles[id_console][3],'*.iso',Vetor_Listagem_Rom,Form1.ListBox1);
+ 7: EnumFiles(Diretorio_Global+Array_Consoles[id_console][3],'*.n64',Vetor_Listagem_Rom,Form1.ListBox1);
+ end;                                      
+
+//-------------------------------------------------------------------------------------------------------
+
+//----------------------
+Vetor_Listagem_Rom.Sort;
+Form1.ListBox1.Clear;
+//----------------------
+
+ //--------------------------------------------------------------------------------------------------------------
+ for i := 0 to Vetor_Listagem_Rom.Count-1 do
+ begin
+ nome_jogo:=ChangeFileExt(ExtractFileName(Vetor_Listagem_Rom[i]),'');
+
+   //PLAYSTATION
+   if id_console = 6 then
+   begin
+    //IRÁ ALTERAR O NOME "DISC" PARA "CD" NA LISTAGEM
+    if (Pos('disc',LowerCase(nome_jogo)) > 0) then
+    nome_jogo:=StringReplace(LowerCase(nome_jogo),'disc','cd',[rfReplaceAll]);
+   end;
+
+ Form1.ListBox1.Items.Add('  '+UpperCase(ApagaTrackCD(nome_jogo)));
+ end;
+ //--------------------------------------------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------------------------------------------------------------
+Form1.Caption:=Application.Title+' '+VersaoApp_Global+' - '+UpperCase(Array_Consoles[id_console][2])+' - '  +Array_Consoles[id_console][10]+' '+'BITS';
+Form1.PopUp_DiretorioROM.Caption:=Array_Consoles[id_console][9] +'s'+' do '+Array_Consoles[id_console][2];
+//-----------------------------------------------------------------------------------------------------------------------------------
+
+ if Form1.ListBox1.Count = 0 then
+ begin
+ Form1.Panel2.Visible:=True;
+ //---------------------------------------------------
+ Form1.IMG_STATUS.Picture.Assign(Nil);
+ Form1.Lista_Imagens.GetBitmap(5,Form1.IMG_STATUS.Picture.Bitmap);
+ //---------------------------------------------------
+ Form1.StatusBar1.Panels[1].Text:=Mensagens_Privadas(15,Array_Consoles[id_console][2],'',Array_Consoles[id_console][9]);
+ end
+ else
+ begin
+ Form1.Panel2.Visible:=False;
+ Verificar_Status(True,Form1.IMG_STATUS);
+  //----------------------------------------------------------------------------------------------------
+  if Form1.ListBox1.Count > 1 then
+  Form1.StatusBar1.Panels[1].Text:=IntToStr(Form1.ListBox1.Count)+' '+UpperCase(Array_Consoles[id_console][9]+'s')
+  else
+  Form1.StatusBar1.Panels[1].Text:=IntToStr(Form1.ListBox1.Count)+' '+UpperCase(Array_Consoles[id_console][9]    );
+  //----------------------------------------------------------------------------------------------------
+ end;
+
+ {NINTENDO 64}
+ if id_console = 7 then
+ begin
+ Form1.BTN_TV.Enabled:=True;
+ config_reg_n64:=config_default_n64;
+ end
+ else
+ Form1.BTN_TV.Enabled:=False;
+ 
+Form1.Edit_Pesquisa.ReadOnly:=False;
+Form1.Edit_Pesquisa.Clear;
+Form1.Edit_Pesquisa.SetFocus;
+Form1.Listbox1.Enabled:=True;
+end;
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+procedure EnumFolders(Root: String; Folders: TStrings);
+procedure Enum(dir: String);
+var
+SR: TSearchRec;
+ret: Integer;
+begin
+ if dir[length(dir)] <> '\' then
+ dir := dir + '\';
+
+ ret := FindFirst(dir + '*.*', faDirectory, SR);
+ if ret = 0 then
+ Try
+   repeat
+	 if ((SR.Attr and faDirectory) <> 0) and
+		( SR.Name <> '.') and
+		( SR.Name <> '..') then
+	 begin
+	 folders.add( dir+SR.Name );
+	 Enum( dir + SR.Name );
+	 end;
+	 ret := FindNext( SR );
+   until ret <> 0;
+ Finally
+ SysUtils.FindClose(SR)
+ end;
+   end;
+begin
+  if root <> EmptyStr then
+  Enum(root);
+end;
+
+procedure EnumFiles(Pasta, Arquivo: String; Files: TStrings; ListBox1:TListBox);
+var
+SR:TSearchRec;
+SubDirs:TStringList;
+ret,X:Integer;
+sPasta:String;
+begin
+
+ if Pasta[Length(Pasta)] <> '\' then
+ Pasta := Pasta + '\';
+
+ SubDirs := TStringList.Create;
+ Try
+ SubDirs.Add(Pasta);
+ EnumFolders(Pasta, SubDirs);
+
+   if SubDirs.Count > 0 then
+     for X := 0 to SubDirs.Count -1 do
+     begin
+     sPasta:= SubDirs[X];
+
+       if sPasta[Length(sPasta)] <> '\' then
+       sPasta := sPasta + '\';
+
+     ret := FindFirst(sPasta + Arquivo, faAnyFile, SR);
+       if ret = 0 then
+       Try
+         Repeat
+	  if not (SR.Attr and faDirectory > 0) then
+          begin
+          //--------------------------------------------------------------------
+          if Arquivo <> Array_Consoles[id_console][4] then
+          Renomear_Extensao(sPasta,Diretorio_Global+Array_Consoles[id_console][3],SR.Name,Array_Consoles[id_console][4])
+          else
+
+            //VERIFICA APENAS A PASTA DE ROMS DO PLAYSTATION
+            if (sPasta) = (Diretorio_Global+Array_Consoles[6][3]) then
+            begin
+              //CASO TENHA 2 ARQUIVOS - TRACK1 e TRACK2
+              if (Pos('TRACK 1)',UpperCase(SR.Name)) > 0) or (Pos('TRACK 01)',UpperCase(SR.Name)) > 0) then
+              Files.Add(sPasta+SR.Name);
+
+              //CASO SEJA CD ÚNICO
+              if (Pos('TRACK',UpperCase(SR.Name)) = 0) then
+              Files.Add(sPasta+SR.Name);
+            end
+            else
+            Files.Add(sPasta+SR.Name);
+
+          //--------------------------------------------------------------------
+          end;
+	 ret := FindNext(SR);
+	 Until ret <> 0;
+       Finally
+       SysUtils.FindClose(SR)
+       end;
+     end;
+ Finally
+ SubDirs.Free;
+ end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+procedure RenomearROM;
+var
+i:Integer;
+Caixa_Texto,Nome_Antigo,Nome_Novo,Pesquisa,Pasta_Rom,Nome_Rom:String;
+Lista_Arquivos:TStringList;
+SearchRec:TSearchRec;
+begin
+//------------------------------------------------------------------------------------
+{CAMINHO COMPLETO DO ARQUIVO DO JOGO LISTADO}
+Pasta_Rom:=ExtractFilePath(Vetor_Listagem_Rom[Form1.ListBox1.ItemIndex]);
+
+{NOME DO JOGO NA LISTAGEM (SEM "TRACK" OU "DISC"}
+Nome_Rom:=ApagaTrackCD(Trim(Form1.ListBox1.Items[Form1.ListBox1.ItemIndex]));
+
+{PESQUISA PARA SER USADO NO FindFirst}
+Pesquisa:=Pasta_Rom+Nome_Rom;
+//------------------------------------------------------------------------------------
+
+//--------------------------------------------------------
+{PROCURA OS ARQUIVOS RELACIONADOS AO NOME DO JOGO LISTADO}
+//--------------------------------------------------------
+Lista_Arquivos:=TStringList.Create;
+
+if FindFirst(Pesquisa+'*.*',faAnyFile, SearchRec) = 0 then
+REPEAT
+Lista_Arquivos.Add(Pasta_Rom+SearchRec.Name);
+UNTIL FindNext(SearchRec) <> 0;
+FindClose(SearchRec);
+//--------------------------------------------------------
+
+//--------------------------------------------------------
+{NOME DO JOGO NA CAIXA DE TEXTO - InputQuery}
+//--------------------------------------------------------
+Caixa_Texto:=Nome_Rom;
+//--------------------------------------------------------
+
+REPEAT
+ if InputQuery(Application.Title,Mensagens_Pequenas(1),Caixa_Texto) then
+ begin
+
+   if (Bloquear_Caracteres(Caixa_Texto) = True) then
+   begin
+   VarMsgGeral:=Mensagens_Publicas(4);
+   MessageBox(Application.Handle,pchar(VarMsgGeral),pchar(Application.Title),MB_ICONWARNING+MB_OK);
+   Break;
+   end;
+
+   if (FileExists(ExtractFilePath(Pasta_Rom)+Trim(Caixa_Texto)+Copy(Array_Consoles[id_console][4],2,Length(Array_Consoles[id_console][4]))) and (Caixa_Texto <> Nome_Rom)) then
+   begin
+   VarMsgGeral:=Mensagens_Privadas(6,Array_Consoles[id_console][2],'',UpperCase(Array_Consoles[id_console][9]));
+   MessageBox(Application.Handle,pchar(VarMsgGeral),pchar(Application.Title),MB_ICONWARNING+MB_OK);
+   Break;
+   end;
+
+   if LowerCase(Array_Consoles[id_console][9]) = 'cd' then
+   begin
+    {INICIO - FOR}
+    for i := 0 to Lista_Arquivos.Count - 1 do
+    begin
+    Nome_Antigo:=Lista_Arquivos.Strings[i];
+    Nome_Novo  :=ExtractFilePath(Nome_Antigo);
+    Nome_Novo  :=StringReplace(Nome_Antigo,Nome_Rom,UpperCase(Caixa_Texto),[rfReplaceAll,rfIgnoreCase]);
+
+      //--------------------------------------------------------------------------------------------------
+      {SEGA CD}
+      //--------------------------------------------------------------------------------------------------
+      if id_console = 5 then
+      begin
+      MoveFile(pchar(ExtractFilePath(Nome_Antigo)),pchar(ExtractFilePath(Nome_Novo)));//RENOMEIA PASTA
+      RenameFile(ExtractFilePath(Nome_Novo)+ExtractFileName(Nome_Antigo),Nome_Novo);  //RENOMEIA ARQUIVOS
+      end
+      //--------------------------------------------------------------------------------------------------
+      else
+      RenameFile(Nome_Antigo,Nome_Novo);
+
+    end;
+    {FIM - FOR}
+   end
+   else
+   begin
+     if (Length(Trim(Caixa_Texto)) > 0) then
+     RenameFile(Pasta_Rom+Nome_Rom              +Copy(Array_Consoles[id_console][4],2,Length(Array_Consoles[id_console][4]))
+               ,Pasta_Rom+UpperCase(Caixa_Texto)+Copy(Array_Consoles[id_console][4],2,Length(Array_Consoles[id_console][4])));
+   end;
+
+ end
+ else
+ Break;
+UNTIL (Caixa_Texto <> Nome_Rom) and (Length(Trim(Caixa_Texto)) > 0);
+
+Lista_Arquivos.Free;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function ApagaTrackCD(Titulo_Jogo:String):String;
+var
+INI,FIM:Integer;
+deletar:String;
+begin
+Result:=Titulo_Jogo;
+
+//----------------------------
+INI:=Pos('(',Result);
+FIM:=Pos(')',Result);
+deletar:=Copy(Result,INI,FIM);
+//----------------------------
+
+{SE TIVER "CD" EM PARENTESES, ADICIONA AO NOME}
+if (Length(deletar) > 0) and ((deletar[2]  = 'c') and (deletar[3]  = 'd')) then
+begin
+ {SE A NOMECLATURA FOR DE "CD 01" AO INVÉS DE "CD 1"}
+ if deletar[5] = '0' then
+ Result:=(Copy(Result,0,INI-1) + Copy(Result,INI,7))
+ else
+ Result:=(Copy(Result,0,INI-1) + Copy(Result,INI,6));
+end;
+
+{SE NÃO TIVER "CD" EM PARENTESES, LIMPA O QUE TIVER DEPOIS DO NOME}
+if (Length(deletar) > 0) and ((deletar[2] <> 'c') and (deletar[3] <> 'd'))then
+Result:=Copy(Result,0,INI-1);
+
+Result:=Trim(Result);
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Grava_ArquivoN64(ArquivoN64:String):Boolean;
+var
+Arquivo:TextFile;
+begin
+Try
+ //--------------------------------------------
+ // .../CONFIG/PROJECT64.SC3
+ // CONFIGURAÇÕES DE ATALHOS DO EMULADOR
+ // **********************
+ // Settings
+ //   Keyboard Shortcuts
+ // **********************
+ //--------------------------------------------
+ AssignFile(Arquivo,ArquivoN64);
+ Rewrite(Arquivo);
+ //--------------------------------------------
+   Writeln(Arquivo,'4000,79,1,0,0,6,0,1' );
+   Writeln(Arquivo,'4000,79,1,0,0,1,0,1' );
+   Writeln(Arquivo,'4002,122,0,0,0,1,0,1');
+   Writeln(Arquivo,'4003,123,0,0,0,6,0,1');
+   Writeln(Arquivo,'4005,116,0,0,0,1,0,1');
+   Writeln(Arquivo,'4006,115,0,1,0,1,0,1');
+   Writeln(Arquivo,'4006,115,0,1,0,6,0,1');
+   Writeln(Arquivo,'4150,112,0,0,0,6,0,1');
+   Writeln(Arquivo,'4151,112,0,0,1,6,0,1');
+   Writeln(Arquivo,'4152,113,0,0,0,6,0,1');
+   Writeln(Arquivo,'4152,19,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4153,114,0,0,0,6,0,1');
+   Writeln(Arquivo,'4154,115,0,0,0,6,0,1');
+   Writeln(Arquivo,'4155,118,0,0,0,6,0,0');
+   Writeln(Arquivo,'4156,76,1,0,0,2,0,1' );
+   Writeln(Arquivo,'4157,116,0,0,0,6,0,0');
+   Writeln(Arquivo,'4158,83,1,0,0,2,0,1' );
+   Writeln(Arquivo,'4159,67,1,0,0,2,0,1' );
+   Writeln(Arquivo,'4160,120,0,0,0,6,0,1');
+   Writeln(Arquivo,'4161,49,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4162,50,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4163,51,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4164,52,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4165,53,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4166,54,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4167,55,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4168,56,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4169,57,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4170,48,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4171,192,0,0,0,6,0,1');
+   Writeln(Arquivo,'4172,13,0,1,0,6,0,0' );
+   Writeln(Arquivo,'4172,27,0,0,0,6,0,1' );
+   Writeln(Arquivo,'4174,65,1,0,0,1,0,1' );
+   Writeln(Arquivo,'4174,65,1,0,0,2,0,1' );
+   Writeln(Arquivo,'4180,84,1,0,0,1,0,1' );
+   Writeln(Arquivo,'4180,84,1,0,0,2,0,1' );
+   Writeln(Arquivo,'4183,187,0,0,0,6,0,1');
+   Writeln(Arquivo,'4184,189,0,0,0,6,0,1');
+ //--------------------------------------------
+ CloseFile(Arquivo);
+ Result:=True;
+Except
+Result:=False;
+end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Verificar_Status(Verifica:Boolean;Flag_Imagem:TImage):Integer;
+begin
+
+if Verifica = True then
+begin
+Flag_Imagem.Picture.Assign(Nil);
+
+  case GetDriveType(PChar(Diretorio_Global[1] + ':\')) of
+  3: begin
+     Result:=1;
+     {Pronto!}
+     Form1.Lista_Imagens.GetBitmap(3,Flag_Imagem.Picture.Bitmap);
+     Form1.StatusBar1.Panels[1].Text:=Mensagens_Pequenas(Result+2);
+     end;
+  2: begin
+     Result:=2;
+     {Atenção - Dispositivo Removível}
+     Form1.Lista_Imagens.GetBitmap(4,Flag_Imagem.Picture.Bitmap);
+     Form1.StatusBar1.Panels[1].Text:=Mensagens_Pequenas(Result);
+     end;
+  else
+  begin
+  Result:=3;
+  {ERRO!}
+  MessageBox(Application.Handle,pchar(Mensagens_Publicas(Result))
+                               ,pchar(Application.Title),MB_ICONERROR+MB_OK);
+  Application.Terminate;
+  end;
+ end;
+end
+else
+begin
+Result:=4;
+  {APENAS EXIBE MENSAGEM DE STATUS QUANDO ESTIVER "Atenção - Dispositivo Removível"}
+  if (Form1.StatusBar1.Panels[1].Text =  Mensagens_Pequenas(2)) or
+     (Form1.StatusBar1.Panels[1].Text <> Mensagens_Privadas(15,Array_Consoles[id_console][2],'',Array_Consoles[id_console][9]))
+  then
+  MessageBox(Application.Handle,pchar(Mensagens_Publicas(1))
+                               ,pchar(Application.Title),MB_ICONWARNING+MB_OK);
+end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function SaveLoadState(Marcador:Boolean;Teclas:String):Boolean;
+var
+i:Integer;
+begin
+
+if Marcador = False then
+begin
+
+ //-------------------------------
+ for i:=1 to 17 do
+ UnRegisterHotkey(Form1.Handle,i);
+ //-------------------------------
+
+Result:=True; 
+end
+else
+begin
+ Try
+   //----------------------------------------------------------
+   if SaveState_Global <> StrToInt(Trim(Copy(Teclas,0,3))) then //SAVESTATE
+   RegisterHotkey(Form1.Handle,13,0,SaveState_Global);
+   //----------------------------------------------------------
+   if LoadState_Global <> StrToInt(Trim(Copy(Teclas,4,3))) then //LOADSTATE
+   RegisterHotkey(Form1.Handle,14,0,LoadState_Global);
+   //----------------------------------------------------------
+
+   //------------------------------------------------
+   RegisterHotkey(Form1.Handle,15,0      ,VK_ESCAPE); //ESC
+   RegisterHotkey(Form1.Handle,16,MOD_ALT,VK_F4    ); //ALT+F4
+   RegisterHotkey(Form1.Handle,17,MOD_ALT,VK_RETURN); //ALT+ENTER
+
+   //------------------------------------------------
+
+   //------------------------------------------------
+   Anular_Teclas(Copy(Teclas,0,3),Copy(Teclas,4,6));
+   //------------------------------------------------
+ Result:=True;
+ Except
+  VarMsgGeral:=Mensagens_Privadas(5,Array_Consoles[id_console][2],'','');
+  MessageBox(Application.Handle,pchar(VarMsgGeral)
+                               ,pchar(Application.Title),MB_ICONERROR+MB_OK);
+ Result:=False;
+ end;
+end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Anular_Teclas(Save,Load:String):Boolean;
+var
+i:Integer;
+begin
+Result:=False;
+
+ for i:= 0 to 11 do //TECLAS F1 ATÉ F12
+ begin
+  if (StrToInt(Save) <> 112+i) and (StrToInt(Load) <> 112+i) then
+  begin
+  if RegisterHotkey(Form1.Handle,i+1,0,112+i) then
+  Result:=True;
+  end;
+ end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Renomear_Extensao(Caminho_Atual,Caminho_Emulador,Nome_Jogo,Extensao_Original:String):Boolean;
+var
+SearchResult:TSearchRec;
+VarNomeJogo:String;
+VarQuantidade:Integer;
+begin
+VarQuantidade:=0;
+VarNomeJogo:=Nome_Jogo;
+//---------------------------------------------
+Extensao_Original:=Copy(Extensao_Original,2,5);
+//---------------------------------------------
+
+   if ((Caminho_Atual) = (Caminho_Emulador)) then
+   begin
+     //----------------------------------------------------------------------------------------------------------------------
+     if FileExists(ChangeFileExt(Caminho_Atual+VarNomeJogo,'')+Extensao_Original) then
+     begin
+        if FindFirst(ChangeFileExt(Caminho_Atual+VarNomeJogo,'')+'*', faAnyFile, SearchResult) = 0 then
+        begin
+         REPEAT
+         //CONTAR QUANTOS ROMS EXISTEM REPETIDOS (MESMO NOME, POIS PODE TER MAIS DE 1 COM EXTENSÃO DIFERENTE)
+         Inc(VarQuantidade);
+         UNTIL FindNext(SearchResult) <> 0;
+        FindClose(SearchResult);
+        end;
+     VarNomeJogo:=ChangeFileExt(VarNomeJogo,'')+' ('+Formatfloat('00',VarQuantidade)+')'+Extensao_Original;
+     end;
+     //----------------------------------------------------------------------------------------------------------------------
+     REPEAT
+     RenameFile(Caminho_Atual+Nome_Jogo,ChangeFileExt(Caminho_Atual+VarNomeJogo,'')+Extensao_Original);
+       if not FileExists(Caminho_Atual+Nome_Jogo) then
+       Break;
+     UNTIL FileExists(ChangeFileExt(Caminho_Atual+VarNomeJogo,'')+Extensao_Original);
+     //----------------------------------------------------------------------------------------------------------------------
+   end;
+
+{NÃO UTILIZADO}
+Result:=True;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Criar_SubMenus_Console(Menu_Linha,Indice:Integer;Menu_Superior:TMenuItem;Evento:TNotifyEvent;Texto_Menu:String):TMenuItem;
+begin
+Result:=TMenuItem.Create(Form1.MainMenu1);
+Result.Caption:=Texto_Menu;
+
+Menu_Superior.Items[Indice].Insert(Menu_Linha,Result);
+Menu_Superior.Items[Indice].Items[Menu_Linha].OnClick:=Evento;
+
+ {COLOCA ÍCONE SE FOR MENU DE "CONFIGURAR CONTROLES"}
+ if Menu_Linha = 1 then
+ Menu_Superior.Items[Indice].Items[Menu_Linha].Bitmap:=Form1.PopUp_ConfigurarControles.Bitmap;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Criar_Emuladores(Lista_Console:Array of Campos;Menu_Superior:TMenuItem):Boolean;
+var
+VarBotao: array of TSpeedButton;
+VarMenu : array of TMenuItem;
+i:Integer;
+begin
+SetLength(VarBotao,Length(Lista_Console));
+SetLength(VarMenu ,Length(Lista_Console));
+
+ for i:=0 to Length(Lista_Console)-1 do
+ begin
+ //-------------------------------------------------------------------------
+ {BOTÕES LATERAIS}
+ //-------------------------------------------------------------------------
+ VarBotao[i]:=TSpeedButton.Create(Form1);
+ VarBotao[i].Parent:=Form1;
+ VarBotao[i].Caption:=UpperCase(Lista_Console[i][2]);
+ VarBotao[i].Flat:=True;
+ VarBotao[i].Font.Name:='Calibri';
+ VarBotao[i].Font.Size:=10;
+ VarBotao[i].Height:=24;
+ VarBotao[i].Left:=Form1.Bevel1.Left+15;
+ //----------------------------------
+ //É UTILIZADO EM "TForm1.Listagem_Nova"
+ VarBotao[i].Name:='C'+IntToStr(i+1);
+ //----------------------------------
+ VarBotao[i].ParentFont:=False;
+ VarBotao[i].Top:=40+(24*i);
+ VarBotao[i].Width:=113;
+ VarBotao[i].Visible:=True;
+ VarBotao[i].OnClick:=Form1.Listagem_Nova;
+ VarBotao[i].Enabled:=Habilita_Emulador(Diretorio_Global+Lista_Console[i][6]
+                                                        ,Lista_Console[i][3]
+                                                        ,Lista_Console[i][2]);
+ //-------------------------------------------------------------------------
+ {MENU SUPERIOR}
+ //-------------------------------------------------------------------------
+ VarMenu[i]:=TMenuItem.Create(Form1.MainMenu1);
+ VarMenu[i].Caption:=Lista_Console[i][2];
+ VarMenu[i].Name:=VarBotao[i].Name;
+ Menu_Superior.Add(VarMenu[i]);
+ VarMenu[i].Enabled:=Habilita_Emulador(Diretorio_Global+Lista_Console[i][6]
+                                                       ,Lista_Console[i][3]
+                                                       ,Lista_Console[i][2]);
+   if VarMenu[i].Enabled = True then
+   begin
+   Criar_SubMenus_Console(0,i,Menu_Superior,Form1.Executa_Item_Emuladores       ,Mensagens_Pequenas(4)+' '+Lista_Console[i][14]);
+   Criar_SubMenus_Console(1,i,Menu_Superior,Form1.PopUp_ConfigurarControlesClick,Mensagens_Pequenas(5));
+   Criar_SubMenus_Console(2,i,Menu_Superior,Nil                                 ,'-'                  );
+   Criar_SubMenus_Console(3,i,Menu_Superior,Form1.Deleta_Config_Emuladores      ,Mensagens_Pequenas(6));
+   end;
+
+ //-------------------------------------------------------------------------
+ end;
+
+{NÃO UTILIZADO}
+Result:=True;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Abertura_Sistema(Menu_Item:TMenuItem):Boolean;
+begin
+Form1.Caption:=Application.Title+' '+VersaoApp_Global;
+//Form1.Menu_Arquivo.Caption:=Mensagens_Pequenas(7);
+Form1.Menu_Emuladores.Caption:=Mensagens_Pequenas(8);
+
+Form1.Menu_Informacoes.Caption:=Mensagens_Pequenas(12);
+ //-----------------------------------------------------
+ Form1.SubMenu_PayPal.Caption  :=Mensagens_Pequenas(13);
+ Form1.SubMenu_Facebook.Caption:=Mensagens_Pequenas(14);
+ Form1.SubMenu_Blog.Caption    :=Mensagens_Pequenas(15);
+ Form1.SubMenu_Sites.Caption   :=Mensagens_Pequenas(16);
+ //-----------------------------------------------------
+
+Form1.Menu_Sobre.Caption:=Copy(Mensagens_Pequenas(9),0,Pos(' o',Mensagens_Pequenas(9))-1);
+Form1.Edit_Pesquisa.Left:=(Form1.Panel_Consoles.Width-Form1.Edit_Pesquisa.Width)div 2;
+Form1.img_logo.Left:=(Form1.Panel_Consoles.Width-Form1.img_logo.Width)div 2;
+
+ //-----------------------------------------
+ Criar_Emuladores(Array_Consoles,Menu_Item);
+ //-----------------------------------------
+
+{NÃO UTILIZADO}
+Result:=True;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Imagem_Console(Indice:Integer;Topo:TPanel):Boolean;
+var
+i:Integer;
+begin
+
+ for i:=0 to Topo.ControlCount-1 do
+ begin
+  {SOME COM AS IMAGENS DE CONSOLE MENOS A ATUAL}
+  if ((Indice-1) <> i) then
+  Topo.Controls[i].Visible:=False
+  else
+  begin
+  Topo.Controls[Indice-1].Left:=(Topo.Width-Topo.Controls[Indice-1].Width)div 2;
+  Topo.Controls[i].Visible:=True;
+  end;
+ end;
+
+ case Indice of
+ 1: Topo.Controls[Indice-1].Top:=-43;
+ 2: Topo.Controls[Indice-1].Top:=-60;
+ 3: Topo.Controls[Indice-1].Top:=-80;
+ 4: Topo.Controls[Indice-1].Top:=-34;
+ 5: Topo.Controls[Indice-1].Top:=-34;
+ 6: Topo.Controls[Indice-1].Top:=-26;
+ 7: Topo.Controls[Indice-1].Top:=-41;
+ end;
+
+{NÃO UTILIZADO} 
+Result:=True;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Habilita_Emulador(Caminho_Emulador,Caminho_Rom,Nome_Console:String):Boolean;
+begin
+
+ {VERIFICA SE EXISTE O EXECUTÁVEL DO EMULADOR}
+ if FileExists(Caminho_Emulador) then
+ begin
+ Result:=True;
+   {SE EXISTIR O EMULADOR, VERIFICA SE EXISTE A PASTA DE ROMS}
+   if not DirectoryExists(Caminho_Rom) then
+   begin
+     Try
+     ForceDirectories(Caminho_Rom);
+     Result:=True;
+     Except
+     Result:=False;
+     VarMsgGeral:=Mensagens_Privadas(4,Nome_Console,'','');
+     MessageBox(Application.Handle,pchar(VarMsgGeral)
+                                  ,pchar(Application.Title),MB_ICONERROR+MB_OK);
+     end;
+   end;
+ end
+ else
+ Result:=False;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Resolucao_Tela_Fusion(Resolucao:Integer):String;
+var
+VarAux:Double;
+begin
+ {
+ DResolution=0,3,0,4
+ 1024x768
+ 0 + (256 * 3) = 768
+ 0 + (256 * 4) = 1024
+ }
+ VarAux:=Resolucao/256;
+ Result:=IntToStr(Trunc(VarAux));
+
+ VarAux:=Trunc(VarAux)*256;
+ VarAux:=Resolucao-VarAux;
+
+ Result:=IntToStr(Trunc(VarAux))+','+Result;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Bloquear_Caracteres(Campo:String):Boolean;
+var
+i:Integer;
+begin
+i:=1;
+Result:=False;
+
+ while i < Length(Campo)+1 do
+ begin
+  //----------------------------------------------
+  if (Campo[i] in ['0'..'9','a'..'z','A'..'Z']) or
+     (Campo[i] =  ' ') or
+     (Campo[i] =  '(') or
+     (Campo[i] =  ')') or
+     (Campo[i] =  '-') or
+     (Campo[i] =  '.') then
+  begin
+  Result:=False;
+  Inc(i);
+  end
+  else
+  begin
+  Result:=True;
+  Break;
+  end;
+  //----------------------------------------------
+ end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+end.

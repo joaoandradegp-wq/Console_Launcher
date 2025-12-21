@@ -1,0 +1,790 @@
+unit Genericas;
+
+interface
+
+uses
+Windows,SysUtils,Classes,Graphics,TLHelp32,ExtCtrls,ComCtrls,Messages,
+ShellApi,Forms,Controls,StdCtrls,abfControls,IdHTTP,Unit1,Dialogs,Registry,StrUtils;
+
+type
+//--------------------------------------------------------------------------------------------
+{VERIFICAR MEMÓRIA DO PC ACIMA DE 2GB - PARTE 01/03}
+//--------------------------------------------------------------------------------------------
+TWinVersion = (wvUnknown, wv95, wv98, wv98SE, wvNT, wvME, wv2000, wvXP, wvVista, wv2003, wv7);
+
+ TMemoryStatusEx = record
+ dwLength: DWORD;
+ dwMemoryLoad: DWORD;
+ ullTotalPhys: Int64;
+ ullAvailPhys: Int64;
+ ullTotalPageFile: Int64;
+ ullAvailPageFile: Int64;
+ ullTotalVirtual: Int64;
+ ullAvailVirtual: Int64;
+ ullAvailExtendedVirtual: Int64;
+ end;
+//--------------------------------------------------------------------------------------------
+
+TStringArray = Array of String;
+
+//--------------------------------------------------
+{VERIFICAR MEMÓRIA DO PC ACIMA DE 2GB - PARTE 02/03}
+//--------------------------------------------------
+function GetWinVersion:TWinVersion;
+function GetGlobalMemoryRecord:TMemoryStatusEx;
+function GetTotalRAM:Int64;
+function FormatBytes(ABytes:Int64):Integer;
+function MemoriaRAM:Integer;
+//--------------------------------------------------
+
+function Windows64:Boolean;
+function PC_Bom: Boolean;
+function Contar_Delimitador(const subtext:String; Text:String):Integer;
+function SplitString(Expression:String; Delimiter:String):TStringArray;
+procedure SetRegistryData(RootKey:HKEY; Key,Value:String; RegDataType:TRegDataType; Data:Variant);
+function  ExtractName(const Filename:String):String;
+function  Config_Fusion_MultiConsole:String;
+function  NovoUpdate(Url:String):Boolean;
+function  Executa_Tela_Cheia(Caminho_Emulador,Classe_Emulador:String):Boolean;
+function  ColorirLista(Control:TWinControl;Index:Integer;Rect:TRect;State:TOwnerDrawState;CorSim,CorNao,CorLetra_Select,CorFundo_Select:String):Boolean;
+function  Localiza_Move_Plugin(DiretorioRaiz,SubDiretorio_Plugin,Nome_Plugin:String):Boolean;
+function  Abrir_Diretorio(Diretorio:String):Boolean;
+function  Box_Confirma(Hnd:THandle;Mensagem:String):Integer;
+function  Verifica_DLL(Emulador_DLL,Origem_DLL,Destino_DLL_System32:String):Boolean;
+function  Executar_Esperar(Executavel,Parametro,Arquivo_DLL,SaveLoad,Classe_Emulador:String):Boolean;
+function  Contar_Arquivo(Diretorio,Nome:String):Integer;
+function  Trocar_String(S,Localizar,Substituir:String):String;
+function  NomePastaAtual(Arquivo:String):String;
+function  HexToColor(Cor:String):TColor;
+function  Inverte_String(Texto:String):String;
+function  IsRunningProcess(ExeFileName:String):Boolean;
+procedure FileCopy(const SourceFileName,TargetFileName:String);
+function  ExtractSystemDir:String;
+function  ExtractWindowsDir:String;
+function  IsWindows64: Boolean;
+
+implementation
+
+uses Mensagens,Especificas;
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Windows64:Boolean;
+type
+TIsWow64Process = function(AHandle:THandle; var AIsWow64: BOOL): BOOL; stdcall;
+var
+vKernel32Handle:DWORD;
+vIsWow64Process:TIsWow64Process;
+vIsWow64:BOOL;
+begin
+Result:=False;
+vKernel32Handle:=LoadLibrary('kernel32.dll');
+
+if (vKernel32Handle = 0) then
+Exit;
+
+  try
+  @vIsWow64Process := GetProcAddress(vKernel32Handle,'IsWow64Process');
+
+    if not Assigned(vIsWow64Process) then
+    Exit;
+
+  vIsWow64 := False;
+
+    if (vIsWow64Process(GetCurrentProcess,vIsWow64)) then
+    Result := vIsWow64;
+
+  finally
+  FreeLibrary(vKernel32Handle);
+  end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function PC_Bom: Boolean;
+begin
+  if (Windows64 = True) and (MemoriaRAM > 3) then
+  Result:=True
+  else
+  Result:=False;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+{VERIFICAR MEMÓRIA DO PC ACIMA DE 2GB - PARTE 03/03}
+//------------------------------------------------------------------------------
+function GetWinVersion:TWinVersion;
+var
+osVerInfo:TOSVersionInfo;
+majorVersion,minorVersion:Integer;
+begin
+Result:=wvUnknown;
+osVerInfo.dwOSVersionInfoSize:=SizeOf(TOSVersionInfo);
+  if GetVersionEx(osVerInfo) then
+  begin
+  minorVersion:=osVerInfo.dwMinorVersion;
+  majorVersion:=osVerInfo.dwMajorVersion;
+    case osVerInfo.dwPlatformId of
+      VER_PLATFORM_WIN32_NT:
+      begin
+        if majorVersion <= 4 then
+        Result:=wvNT
+        else if (majorVersion = 5) and (minorVersion = 0) then
+        Result:=wv2000
+        else if (majorVersion = 5) and (minorVersion = 1) then
+        Result:=wvXP
+        else if (majorVersion = 5) and (minorVersion = 2) then
+        Result:=wv2003
+        else if (majorVersion = 6) then
+        Result:=wvVista
+        else if (majorVersion = 7) then
+        Result:=wv7;
+      end;
+      VER_PLATFORM_WIN32_WINDOWS:
+      begin
+        if (majorVersion = 4) and (minorVersion = 0) then
+        Result:=wv95
+        else if (majorVersion = 4) and (minorVersion = 10) then
+        begin
+          if osVerInfo.szCSDVersion[1] = 'A' then
+          Result:=wv98SE
+          else
+          Result:=wv98;
+        end
+        else if (majorVersion = 4) and (minorVersion = 90) then
+        Result:=wvME
+        else
+        Result:=wvUnknown;
+      end;
+    end;
+  end;
+end;
+
+function GetGlobalMemoryRecord:TMemoryStatusEx;
+type
+TGlobalMemoryStatusEx = procedure(var lpBuffer:TMemoryStatusEx);stdcall;
+var
+ms:TMemoryStatus;
+h:THandle;
+gms:TGlobalMemoryStatusEx;
+begin
+Result.dwLength := SizeOf(Result);
+
+  if GetWinVersion in [wvUnknown, wv95, wv98, wv98SE, wvNT, wvME] then
+  begin
+  ms.dwLength:=SizeOf(ms);
+  GlobalMemoryStatus(ms);
+  Result.dwMemoryLoad:=ms.dwMemoryLoad;
+  Result.ullTotalPhys:=ms.dwTotalPhys;
+  Result.ullAvailPhys:=ms.dwAvailPhys;
+  Result.ullTotalPageFile:=ms.dwTotalPageFile;
+  Result.ullAvailPageFile:=ms.dwAvailPageFile;
+  Result.ullTotalVirtual:=ms.dwTotalVirtual;
+  Result.ullAvailVirtual:=ms.dwAvailVirtual;
+  end
+  else
+  begin
+  h:=LoadLibrary(kernel32);
+    try
+      if h <> 0 then
+      begin
+      @gms:=GetProcAddress(h,'GlobalMemoryStatusEx');
+        if @gms <> nil then
+        gms(Result);
+      end;
+    finally
+    FreeLibrary(h);
+    end;
+  end;
+
+end;
+
+function GetTotalRAM:Int64;
+begin
+Result:=GetGlobalMemoryRecord.ullTotalPhys;
+end;
+
+function FormatBytes(ABytes:Int64):Integer;
+var
+fr:Double;
+begin
+fr:=ABytes;
+
+  while fr >= 1024 do
+  fr:=fr/1024;
+
+  if fr >= 1000 then
+  fr:=fr/1024;
+
+Result:=Round(fr);
+end;
+
+function MemoriaRAM:Integer;
+begin
+Result:=FormatBytes(GetTotalRAM);
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Contar_Delimitador(const subtext:String; Text:String):Integer;
+begin
+ if (Length(subtext) = 0) or (Length(Text) = 0) or (Pos(subtext, Text) = 0) then
+ Result := 0
+ else
+ Result := (Length(Text) - Length(StringReplace(Text,subtext,'',[rfReplaceAll]))) div Length(subtext);
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function SplitString(Expression:String; Delimiter:String):TStringArray;
+var
+  Res:        TStringArray;
+  ResCount:   DWORD;
+  dLength:    DWORD;
+  StartIndex: DWORD;
+  sTemp:      string;
+begin
+  dLength := Length(Expression);
+  StartIndex := 1;
+  ResCount := 0;
+  repeat
+    sTemp := Copy(Expression, StartIndex, Pos(Delimiter, Copy(Expression, StartIndex, Length(Expression))) - 1);
+    SetLength(Res, Length(Res) + 1);
+    SetLength(Res[ResCount], Length(sTemp));
+    Res[ResCount] := sTemp;
+    StartIndex := StartIndex + Length(sTemp) + Length(Delimiter);
+    ResCount := ResCount + 1;
+  until StartIndex > dLength;
+  Result := Res;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+procedure SetRegistryData(RootKey:HKEY; Key,Value:String; RegDataType:TRegDataType; Data:Variant);
+var
+Reg:TRegistry;
+s:String;
+begin
+  Reg:=TRegistry.Create(KEY_WRITE);
+  try
+    Reg.RootKey:=RootKey;
+    if Reg.OpenKey(Key,True) then
+    begin
+      try
+        if RegDataType = rdUnknown then
+        RegDataType:=Reg.GetDataType(Value);
+
+        if RegDataType = rdString then
+        Reg.WriteString(Value,Data)
+
+        else if RegDataType = rdExpandString then
+        Reg.WriteExpandString(Value,Data)
+
+        else if RegDataType = rdInteger then
+        Reg.WriteInteger(Value,Data)
+
+        else if RegDataType = rdBinary then begin
+        s:=Data;
+        Reg.WriteBinaryData(Value,PChar(s)^,Length(s));
+        end
+        else
+        raise Exception.Create(SysErrorMessage(ERROR_CANTWRITE));
+      Except
+      Reg.CloseKey;
+      raise;
+      end;
+      Reg.CloseKey;
+      end
+      else
+      raise Exception.Create(SysErrorMessage(GetLastError));
+      Finally
+      Reg.Free;
+    end;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function ExtractName(const Filename:String):String;
+var
+aExt : String;
+aPos : Integer;
+begin
+aExt := ExtractFileExt(Filename);
+Result := ExtractFileName(Filename);
+if aExt <> '' then
+   begin
+   aPos := Pos(aExt,Result);
+   if aPos > 0 then
+      begin
+      Delete(Result,aPos,Length(aExt));
+      end;
+   end;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Config_Fusion_MultiConsole:String;
+var
+VarCaminho,Config_Raiz,Config_Individual:String;
+Arquivo:TStringList;
+begin
+VarCaminho:=Diretorio_Global+ExtractFilePath(Array_Consoles[id_console][6]);
+Config_Raiz:=Diretorio_Global+'Config\'+Array_Consoles[id_console][11];
+Config_Individual:=ExtractName(Diretorio_Global+ExtractFilePath(Array_Consoles[id_console][6])
+                  +Array_Consoles[id_console][11])
+                  +' - '+Array_Consoles[id_console][2]
+                  +ExtractFileExt(Array_Consoles[id_console][11]);
+
+  //CASO NÃO EXISTA O ARQUIVO INDIVIDUAL, ELE COPIA DO ".\CONFIG\Fusion.ini"
+  if FileExists(VarCaminho+Config_Individual) = False then
+  begin
+  //-------------------------------------------------
+  FileCopy(Config_Raiz,VarCaminho+Config_Individual);
+  //-------------------------------------------------
+  Arquivo:=TStringList.Create;
+  Arquivo.LoadFromFile(VarCaminho+Config_Individual);
+  Arquivo.SaveToFile(VarCaminho+Config_Individual);
+  Arquivo.Free;
+  end;
+  
+Result:=VarCaminho+Config_Individual;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function NovoUpdate(Url:String): Boolean;
+var
+aux: String;
+VarHTTP: TIdHTTP;
+begin
+Result:=False;
+aux:='';
+
+VarHTTP:=TIdHTTP.Create(nil);
+VarHTTP.HandleRedirects:=True;
+
+  Try
+  //-------------------------------
+   if pos('http://',Url) > 0 then
+   aux:=VarHTTP.Get(Url)
+   else
+   aux:=VarHTTP.Get('http://'+Url);
+  //-------------------------------
+  Except
+  //-------------------------------------------------------------------------------
+    if Length(aux) = 0 then
+    begin
+      case MessageBox(Application.Handle,pchar(Mensagens_Privadas(3,VersaoApp_Global,'',''))
+                                        ,pchar(Application.Title)
+                                        ,MB_ICONQUESTION+MB_YESNO+MB_DEFBUTTON2) of
+      idYes: Result:=True;
+       idNo: Result:=False;
+      end;
+    end;
+  //-------------------------------------------------------------------------------
+  end;
+
+VarHTTP.Free;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Executa_Tela_Cheia(Caminho_Emulador,Classe_Emulador:String):Boolean;
+var
+nHandle:HWnd;
+begin
+Caminho_Emulador:=ExtractFileName(Caminho_Emulador);
+
+    //VERIFICA SE EXECUTÁVEL DO EMULADOR ESTÁ ATIVO
+    while IsRunningProcess(Caminho_Emulador) = True do
+    begin
+    //RECEBE O NOME DA CLASSE DO EXECUTÁVEL DO EMULADOR
+    nHandle:=FindWindow(pchar(Classe_Emulador),nil);
+
+      if  nHandle <> 0 then
+      begin
+      BringWindowToTop(nHandle);
+      //SIMULA VIRTUALMENTE O ALT+ENTER
+      keybd_event(VK_MENU,  0,0,0);
+      keybd_event(VK_RETURN,0,0,0);
+      keybd_event(VK_RETURN,0,KEYEVENTF_KEYUP,0);
+      keybd_event(VK_MENU,  0,KEYEVENTF_KEYUP,0);
+      Result:=True;
+      Break;
+      end
+      else
+      Result:=False;
+
+    end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function ColorirLista(Control:TWinControl;Index:Integer;Rect:TRect;State:TOwnerDrawState;
+                      CorSim,CorNao,CorLetra_Select,CorFundo_Select:String):Boolean;
+begin
+
+ with (Control as TListBox).Canvas do
+ begin
+    if Index mod 2 = 0 then
+    begin
+    Brush.Color := HexToColor(CorSim);
+    Font.Color := clWhite;
+    end
+    else
+    Brush.Color := HexToColor(CorNao);
+
+    if odSelected in State then
+    begin
+    Font.Color := HexToColor(CorLetra_Select);
+    Font.Style := [fsBold];
+    Brush.Color := HexToColor(CorFundo_Select);
+    end;
+
+ Brush.Style := bsSolid;
+ FillRect(Rect);
+ Brush.Style := bsClear;
+ TextOut(Rect.Left, Rect.Top,(Control as TListBox).Items[Index]);
+ end;
+
+{NÃO UTILIZADO}
+Result:=True;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function  Localiza_Move_Plugin(DiretorioRaiz,SubDiretorio_Plugin,Nome_Plugin:String):Boolean;
+var
+SearchRec: TSearchRec;
+begin
+DiretorioRaiz:=Trim(DiretorioRaiz);
+
+ if DiretorioRaiz[Length(DiretorioRaiz)] <> '' then
+ DiretorioRaiz:=DiretorioRaiz + '';
+                                     
+SetCurrentDir(DiretorioRaiz);
+
+ if FindFirst('*'+ExtractFileExt(Nome_Plugin), faAnyFile, SearchRec) = 0 then
+ Repeat
+  if not (SearchRec.Name = Nome_Plugin) then
+  begin
+   if DirectoryExists(DiretorioRaiz+SubDiretorio_Plugin) = False then
+   ForceDirectories(DiretorioRaiz+SubDiretorio_Plugin);
+    Try
+    FileCopy(DiretorioRaiz+SearchRec.Name,DiretorioRaiz+SubDiretorio_Plugin+'\'+SearchRec.Name);
+    Finally
+    DeleteFile(DiretorioRaiz+SearchRec.Name);
+    end;
+  end;
+ Until FindNext(SearchRec) <> 0;
+
+FindClose(SearchRec);
+
+{NÃO UTILIZADO}
+Result:=True;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Abrir_Diretorio(Diretorio:String):Boolean;
+begin
+
+ Try
+ Result:=True;
+ ShellExecute(Application.Handle,'open',pchar(Diretorio),nil,nil,SW_SHOWNORMAL);
+ Except
+ Result:=False;
+ VarMsgGeral:=Mensagens_Privadas(11,'',Diretorio,'');
+ MessageBox(Application.Handle,pchar(VarMsgGeral)
+                              ,pchar(Application.Title),MB_ICONERROR+MB_OK);
+ end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Box_Confirma(Hnd:THandle;Mensagem:String):Integer;
+begin
+Result:=MessageBox(Hnd,pchar(Mensagem),pchar(Application.Title),MB_ICONWARNING+MB_YESNO);
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Verifica_DLL(Emulador_DLL,Origem_DLL,Destino_DLL_System32:String):Boolean;
+begin
+
+ {VERIFICA SE EXISTE A DLL INSTALADA NA PASTA SYSTEM DO WINDOWS}
+ if not FileExists(Destino_DLL_System32) then
+ begin
+   {CASO NÃO EXISTA, VERIFICA SE EXISTE A DLL NA PASTA "LIB" DO CONSOLE LAUNCHER}
+   if FileExists(Origem_DLL) then
+   begin
+    {COPIA DA PASTA "LIB" DO CONSOLE LAUNCHER PARA O COMPUTADOR}
+    Try
+    FileCopy(Origem_DLL,Destino_DLL_System32);
+    Result:=True;
+    Except
+    Result:=False;
+    VarMsgGeral:=Mensagens_Privadas(1,'',Emulador_DLL,'');
+    MessageBox(Application.Handle,pchar(VarMsgGeral)
+                                 ,pchar(Application.Title),MB_ICONERROR+MB_OK);
+    end;
+   end
+   else
+   begin
+   Result:=False;
+   VarMsgGeral:=Mensagens_Privadas(2,'',Emulador_DLL,'');
+   MessageBox(Application.Handle,pchar(VarMsgGeral)
+                                ,pchar(Application.Title),MB_ICONERROR+MB_OK);
+   end;
+ end
+ else
+ Result:=True;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Executar_Esperar(Executavel,Parametro,Arquivo_DLL,SaveLoad,Classe_Emulador:String):Boolean;
+var
+Sh:TShellExecuteInfo;
+CodigoSaida:DWORD;
+i:Integer;
+begin
+
+//----------------------------------------------------------------
+if Length(Arquivo_DLL) > 0 then
+begin
+
+ {COPIA A QUANTIDADE DE DLL QUE ESTIVER DEFINIDA NO Array_Consoles}
+ for i:=0 to Contar_Delimitador(';',Array_Consoles[id_console][12])-1 do
+ Result:=Verifica_DLL(SplitString(Arquivo_DLL,';')[i],Diretorio_Global+'Lib\'+
+                      SplitString(Arquivo_DLL,';')[i],ExtractSystemDir+'\'+SplitString(Arquivo_DLL,';')[i]);
+
+end
+else
+Result:=True;
+//----------------------------------------------------------------
+
+if Result = True then
+begin
+FillChar(Sh,SizeOf(Sh),0);
+Sh.cbSize:=SizeOf(TShellExecuteInfo);
+
+  With Sh do
+  begin
+  fMask:=SEE_MASK_NOCLOSEPROCESS;
+  Wnd:=Application.Handle;
+  lpVerb:=nil;
+  lpFile:=PChar(Executavel);
+  lpParameters:=PChar(Parametro);
+   //---------------------------------------------------------
+   //VIRA "TRUE" NA FUNÇÃO "Carregar_Emulador"
+   if Form1.Enabled = True then
+   nShow:=SW_SHOWNORMAL //QUANDO ABRIR PELO MENU
+   else
+   nShow:=SW_HIDE;      //QUANDO ABRIR PELA LISTAGEM DE JOGOS
+   //---------------------------------------------------------
+  end;
+
+  if ShellExecuteEx(@Sh) then
+  begin
+  PID_Emulador:=Sh.hProcess;
+
+   //---------------------------------------------
+   {PLAYSTATION}
+   if id_console = 6 then
+   Executa_Tela_Cheia(Executavel,Classe_Emulador);
+   //---------------------------------------------
+
+    //CASO EXECUTE PELA LISTAGEM, GRAVA AS TECLAS DE ATALHO
+    //--------------------------------------------------------------
+    if (Length(Parametro) > 0) and (Erro_Salvar_Config = False) then
+    SaveLoadState(True,SaveLoad);
+    //--------------------------------------------------------------
+
+   REPEAT
+   Application.ProcessMessages;
+   GetExitCodeProcess(Sh.hProcess,CodigoSaida);
+   UNTIL not(CodigoSaida=STILL_ACTIVE);
+
+  //----------------------
+  PID_Emulador:=0;
+  SaveLoadState(False,'');
+  //----------------------
+  DeleteFile(ExtractFilePath(Application.ExeName)+ExtractFilePath(Array_Consoles[id_console][6])+'stderr.txt');
+  DeleteFile(ExtractFilePath(Application.ExeName)+ExtractFilePath(Array_Consoles[id_console][6])+'stdout.txt');
+  Result:=True;
+  end
+  else
+  Result:=False;
+end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Contar_Arquivo(Diretorio,Nome:String):Integer;
+var
+Rec:TSearchRec;
+VarProcura,VarContador:Integer;
+begin
+VarContador:=0;
+VarProcura:=SysUtils.FindFirst(Diretorio+Nome,faAnyFile,Rec);
+
+ while VarProcura = 0 do
+ begin
+ Inc(VarContador);
+ VarProcura:=SysUtils.FindNext(Rec);
+ end;
+
+SysUtils.FindClose(Rec);
+Result:=VarContador;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Trocar_String(S,Localizar,Substituir:String):String;
+var
+VarRetorno:String;
+VarPosicao:Integer;
+begin
+VarRetorno:=S;
+VarPosicao:=Pos(Localizar,VarRetorno);
+
+ if VarPosicao <> 0 then
+ begin
+ Delete(VarRetorno,VarPosicao,Length(Localizar));
+ Insert(Substituir,VarRetorno,VarPosicao);
+ end;
+
+Result:=VarRetorno;
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function NomePastaAtual(Arquivo:String):String;
+var
+VarPosicao:Integer;
+VarCaminho:String;
+begin
+//-------------------------------
+Arquivo:=ExtractFileDir(Arquivo);
+//-------------------------------
+
+VarPosicao:=Pos('\',Inverte_String(Arquivo));
+VarCaminho:=Inverte_String(Copy(Arquivo,0,Length(Arquivo)));
+
+Result:=Inverte_String(Copy(VarCaminho,1,VarPosicao-1));
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function HexToColor(Cor:String):TColor;
+begin
+Result:=RGB(StrToInt('$'+Copy(Cor,1,2)),
+            StrToInt('$'+Copy(Cor,3,2)),
+            StrToInt('$'+Copy(Cor,5,2)));
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function Inverte_String(Texto:String):String;
+var
+i:Integer;
+begin
+Result:='';
+
+ for i:=Length(Texto) downto 1 do
+ Result:=Result+Copy(Texto,i,1);
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function IsRunningProcess(exeFileName:String):Boolean;
+var
+ContinueLoop   :BOOL;
+FSnapshotHandle:THandle;
+FProcessEntry32:TProcessEntry32;
+begin
+Result:=False;
+
+FSnapshotHandle:=CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
+FProcessEntry32.dwSize:=SizeOf(FProcessEntry32);
+ContinueLoop:=Process32First(FSnapshotHandle,FProcessEntry32);
+
+  while Integer(ContinueLoop) <> 0 do
+  begin
+    if ((UpperCase(ExtractFileName(FProcessEntry32.szExeFile)) =
+         UpperCase(ExeFileName)) or (UpperCase(FProcessEntry32.szExeFile) =
+         UpperCase(ExeFileName))) then
+    Result := True;
+  ContinueLoop := Process32Next(FSnapshotHandle, FProcessEntry32);
+  end;
+
+CloseHandle(FSnapshotHandle);
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+procedure FileCopy(const SourceFileName,TargetFileName:String);
+var
+S,T: TFileStream;
+begin
+S:=TFileStream.Create(SourceFileName,fmOpenRead);
+
+ Try
+ T:=TFileStream.Create(TargetFileName,fmOpenWrite or fmCreate);
+   Try
+   T.CopyFrom(S,S.Size);
+   Finally
+   T.Free;
+   end;
+ Finally
+ S.Free;
+ end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function ExtractSystemDir:String;
+var
+VarDir:array[0..MAX_PATH] of Char;
+begin
+
+ if IsWindows64 = False then
+ begin
+ GetSystemDirectory(VarDir,MAX_PATH);
+ Result:=StrPas(VarDir);
+ end
+ else
+ Result:=ExtractWindowsDir+'\SysWOW64'
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function ExtractWindowsDir:String;
+var
+Buffer:array[0..MAX_PATH] of Char;
+begin
+GetWindowsDirectory(Buffer,MAX_PATH);
+Result:=pchar(StrPas(Buffer));
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+function IsWindows64: Boolean;
+type
+TIsWow64Process = function(AHandle:THandle; var AIsWow64: BOOL): BOOL; stdcall;
+var
+vKernel32Handle:DWORD;
+vIsWow64Process:TIsWow64Process;
+vIsWow64:BOOL;
+begin
+Result:=False;
+vKernel32Handle:=LoadLibrary('kernel32.dll');
+
+ if (vKernel32Handle = 0) then
+ Exit;
+
+  Try
+  @vIsWow64Process:=GetProcAddress(vKernel32Handle, 'IsWow64Process');
+
+   if not Assigned(vIsWow64Process) then
+   Exit;
+
+  vIsWow64:=False;
+
+   if (vIsWow64Process(GetCurrentProcess, vIsWow64)) then
+   Result:=vIsWow64;
+
+  finally
+  FreeLibrary(vKernel32Handle);
+  end;
+
+end;
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+end.
+ 
