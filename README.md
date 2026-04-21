@@ -29,7 +29,7 @@ Possui integração com os seguintes consoles:
 - Sega CD  
 - Playstation  
 - Nintendo 64  
-
+<br>
 </td>
 
 <td width="50%" valign="top" style="border: none; padding: 15px;">
@@ -77,7 +77,7 @@ Obs: Muito bom quando se utiliza Joystick com teclas mapeadas.
 As extensões de jogos mais utilizadas em cada emulador foram baseadas em testes e downloads de vários sites de roms.
 
 Caso encontre uma nova extensão suportada pelo emulador e que não é listada no Console Launcher, envie um e-mail solicitando a implantação deste.
-<br>
+<br><br>
 </td>
 
 <td width="50%" valign="top" style="border: none; padding: 15px;">
