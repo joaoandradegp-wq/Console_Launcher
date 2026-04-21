@@ -1,12 +1,22 @@
-Powered by Fusion, Snes9X, Nestopia, pSX and Project64
+<h1 align="center">🎮 Console Launcher</h1>
 
-Console Launcher é um aplicativo front-end destinado a usuários que utilizam emuladores de plataformas antigas para jogar, visando simplicidade e melhorando interação do usuário com a plataforma desejada, aumentando assim sua experiência com seu console preferido.
-O aplicativo foi desenvolvido visando a autoconfiguração dos emuladores baseados no computador que está sendo executado, utilizando recentes plugins de áudio/vídeo.
-A partir da primeira instalação, este se torna portável (pode ser executado a partir de um cartão de memória ou pendrive) e com uma listagem de jogos fácil de serem localizados, principalmente alterando de um console para outro. Este proporciona também uma boa interface de configuração para os joysticks de cada console.
+<p align="center">
+Launcher unificado para emuladores clássicos com foco em simplicidade, automação e portabilidade.
+</p>
 
-<table>
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-Ativo-success">
+  <img src="https://img.shields.io/badge/Platform-Windows-blue">
+  <img src="https://img.shields.io/badge/Emulators-Multi-orange">
+</p>
+
+---
+
+## ✨ Recursos
+
+<table style="border: none; border-collapse: collapse;">
 <tr>
-<td width="33%" valign="top">
+<td width="50%" valign="top" style="border: none; padding: 15px;">
 
 ### 🎮 CONSOLES SUPORTADOS
 
@@ -21,7 +31,8 @@ Possui integração com os seguintes consoles:
 - Nintendo 64  
 
 </td>
-<td width="33%" valign="top">
+
+<td width="50%" valign="top" style="border: none; padding: 15px;">
 
 ### ⚡ FÁCIL DE USAR
 
@@ -30,64 +41,83 @@ Apenas selecione o console que deseja utilizar que o mesmo irá listar os jogos 
 **Obs:** Para configurar o Joystick, clique com o botão direito na listagem.
 
 </td>
-<td width="33%" valign="top">
+</tr>
+
+<tr>
+<td width="50%" valign="top" style="border: none; padding: 15px;">
+
+### ⚙️ AUTO-CONFIGURADO
+
+O Console Launcher define automaticamente a melhor configuração de áudio e vídeo para o computador utilizado. Realiza a utilização de DLL externa (DirectX), BIOS e Memory Card quando aplicável.
+
+**Obs:** Em alguns casos na primeira execução deve ser rodado como Administrador.
+
+</td>
+
+<td width="50%" valign="top" style="border: none; padding: 15px;">
 
 ### ⌨️ TECLAS DE ATALHO
 
 Foram centralizadas teclas de atalho enquanto determinado jogo está em execução.
 
-**Obs:** Muito bom quando se utiliza Joystick com teclas mapeadas.
+Obs: Muito bom quando se utiliza Joystick com teclas mapeadas.
 
 - ESC - Fechar  
 - F7 - LoadState  
 - F6 - SaveState  
-
+<br>
 </td>
 </tr>
 
 <tr>
-<td width="33%" valign="top">
-
-### ⚙️ AUTO-CONFIGURADO
-
-O Console Launcher define automaticamente a melhor configuração de áudio e vídeo para o computador utilizado.
-
-Realiza a utilização de DLL externa (DirectX), BIOS e Memory Card quando aplicável.
-
-**Obs:** Em alguns casos na primeira execução deve ser rodado como Administrador.
-
-</td>
-<td width="33%" valign="top">
+<td width="50%" valign="top" style="border: none; padding: 15px;">
 
 ### 📦 SUPORTE A EXTENSÕES
 
 As extensões de jogos mais utilizadas em cada emulador foram baseadas em testes e downloads de vários sites de roms.
 
 Caso encontre uma nova extensão suportada pelo emulador e que não é listada no Console Launcher, envie um e-mail solicitando a implantação deste.
-
+<br>
 </td>
-<td width="33%" valign="top">
+
+<td width="50%" valign="top" style="border: none; padding: 15px;">
 
 ### 🕹️ SUPORTE PARA JOYSTICK
 
-O Console Launcher possui integração com os emuladores para configurar os controles utilizados por cada console.
-
-É exibida uma imagem original do Joystick para facilitar a configuração.
+O Console Launcher possui integração com os emuladores para configurar os controles utilizados por cada console. É exibida uma imagem original do Joystick para facilitar a configuração do mesmo.
 
 </td>
 </tr>
+</table>
 
-<tr>
-<td width="33%" valign="top">
+---
 
-### 💾 PORTABILIDADE
+## 💾 PORTABILIDADE
 
 Copie o Console Launcher em uma mídia digital removível e execute onde quiser.
 
-**Obs:** As funcionalidades poderão sofrer queda de performance.
+Obs: As funcionalidades poderão sofrer queda de performance.
 
-</td>
-<td width="33%" valign="top"></td>
-<td width="33%" valign="top"></td>
-</tr>
-</table>
+---
+
+## 📸 Preview
+
+<p align="center">
+  <img width="350" height="257" alt="image" src="https://github.com/user-attachments/assets/471f0748-93f8-4aa0-b535-e88dcd08ef78" />
+</p>
+
+---
+
+## 📥 Download
+
+<p align="center">
+  <a href="#">
+    <img src="https://img.shields.io/badge/Download-Console%20Launcher-blue?style=for-the-badge">
+  </a>
+</p>
+
+---
+
+<p align="center">
+Feito com ❤️ para fãs de emulação
+</p>
