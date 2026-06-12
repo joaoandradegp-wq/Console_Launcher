@@ -103,7 +103,7 @@ Obs: As funcionalidades poderão sofrer queda de performance.
 ## 📸 Preview
 
 <p align="center">
-  <img width="350" height="257" alt="image" src="https://github.com/user-attachments/assets/471f0748-93f8-4aa0-b535-e88dcd08ef78" />
+  <img width="500" alt="image" src="https://github.com/user-attachments/assets/5889029b-15aa-4137-8a76-b53651be7c4a" />
 </p>
 
 ---
@@ -119,5 +119,5 @@ Obs: As funcionalidades poderão sofrer queda de performance.
 ---
 
 <p align="center">
-Feito com ❤️ para fãs de emulação
+Feito com ❤️ para fãs de emulação.
 </p>
