@@ -13,7 +13,7 @@ Launcher unificado para emuladores clássicos com foco em simplicidade, automaç
 ---
 
 ## ✨ Recursos
-
+<br>
 <table style="border: none; border-collapse: collapse;">
 <tr>
 <td width="50%" valign="top" style="border: none; padding: 15px;">
@@ -108,16 +108,6 @@ Obs: As funcionalidades poderão sofrer queda de performance.
 
 ---
 
-## 📥 Download
-
 <p align="center">
-  <a href="#">
-    <img src="https://img.shields.io/badge/Download-Console%20Launcher-blue?style=for-the-badge">
-  </a>
-</p>
-
----
-
-<p align="center">
-Feito com ❤️ para fãs de emulação.
+Feito para fãs de emulação. 🕹️
 </p>
